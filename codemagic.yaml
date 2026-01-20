@@ -57,16 +57,45 @@ workflows:
             -exportOptionsPlist exportOptions.plist \
             -exportPath $CM_BUILD_DIR/ipa || echo "IPA export failed, creating manually..."
 
-      - name: Create IPA manually from xcarchive
+      - name: Remove code signature for sideloading
+        script: |
+          echo "Preparing IPA for AltStore/Sideloadly sideloading"
+          cd $CM_BUILD_DIR
+
+          APP_PATH="app.xcarchive/Products/Applications/NextcloudTalk.app"
+
+          if [ -d "$APP_PATH" ]; then
+            # Remove existing code signature so AltStore/Sideloadly can re-sign
+            echo "Removing embedded.mobileprovision and _CodeSignature"
+            rm -rf "$APP_PATH/embedded.mobileprovision"
+            rm -rf "$APP_PATH/_CodeSignature"
+
+            # Remove code signature from all frameworks and plugins
+            find "$APP_PATH" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
+            find "$APP_PATH" -name "embedded.mobileprovision" -exec rm -f {} + 2>/dev/null || true
+
+            echo "Code signature removed successfully"
+          fi
+
+      - name: Create unsigned IPA for sideloading
         script: |
           if [ ! -f $CM_BUILD_DIR/ipa/*.ipa ]; then
-            echo "Creating IPA manually from .app bundle"
+            echo "Creating unsigned IPA for AltStore/Sideloadly"
             cd $CM_BUILD_DIR
+
+            APP_PATH="app.xcarchive/Products/Applications/NextcloudTalk.app"
+
+            # Create Payload directory and package IPA
             mkdir -p Payload
-            cp -r app.xcarchive/Products/Applications/*.app Payload/
-            zip -qq -r -9 NextcloudTalk.ipa Payload
+            cp -r "$APP_PATH" Payload/
+
+            # Create IPA (just a zip file)
+            zip -qq -r -9 NextcloudTalk-unsigned.ipa Payload
             rm -rf Payload
-            echo "Manual IPA created: NextcloudTalk.ipa"
+
+            echo "✅ Unsigned IPA created: NextcloudTalk-unsigned.ipa"
+            echo "📱 Install using AltStore, Sideloadly, or SideStore"
+            echo "⚠️  This IPA needs to be re-signed with your Apple ID"
           else
             echo "IPA already exists from xcodebuild export"
           fi
@@ -74,4 +103,4 @@ workflows:
     artifacts:
       - $CM_BUILD_DIR/app.xcarchive
       - $CM_BUILD_DIR/ipa/*.ipa
-      - $CM_BUILD_DIR/*.ipa
+      - $CM_BUILD_DIR/*-unsigned.ipa
