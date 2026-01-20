@@ -1,5 +1,4 @@
 workflows:
-  # Workflow for building development version for testing on device
   ios-development:
     name: iOS Development Build
     max_build_duration: 45
@@ -12,26 +11,22 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      # Pre-build setup
       - name: Setup environment
         script: |
           echo "Setting up development build environment..."
           # Install SwiftLint
           brew install swiftlint
 
-      # Install dependencies
       - name: Install dependencies
         script: |
           echo "Installing CocoaPods dependencies..."
           pod install
 
-      # Run linting (optional for development)
       - name: Run SwiftLint
         script: |
           echo "Running SwiftLint..."
           swiftlint --strict || echo "SwiftLint found issues, but continuing with build..."
 
-      # Build the app for development
       - name: Build for Development
         script: |
           echo "Building NextcloudTalk for development..."
@@ -43,7 +38,6 @@ workflows:
             -archivePath $CM_BUILD_DIR/NextcloudTalk_Development.xcarchive \
             clean archive
 
-      # Export development IPA
       - name: Export Development IPA
         script: |
           echo "Exporting development IPA..."
@@ -58,12 +52,10 @@ workflows:
       - build/*.ipa
 
     publishing:
-      # Download link for the IPA
       - name: Publish development IPA
         script: |
           echo "Development IPA ready for download: NextcloudTalk.ipa"
 
-  # Workflow for building and testing the iOS app
   ios-workflow:
     name: iOS Build and Test
     max_build_duration: 60
@@ -76,26 +68,22 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      # Pre-build setup
       - name: Setup environment
         script: |
           echo "Setting up build environment..."
           # Install SwiftLint
           brew install swiftlint
 
-      # Install dependencies
       - name: Install dependencies
         script: |
           echo "Installing CocoaPods dependencies..."
           pod install
 
-      # Run linting
       - name: Run SwiftLint
         script: |
           echo "Running SwiftLint..."
           swiftlint --strict
 
-      # Build the app for testing
       - name: Build for testing
         script: |
           echo "Building NextcloudTalk for testing..."
@@ -106,7 +94,6 @@ workflows:
             -configuration Debug \
             -derivedDataPath build
 
-      # Run unit tests
       - name: Run tests
         script: |
           echo "Running unit tests..."
@@ -127,13 +114,11 @@ workflows:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
 
     publishing:
-      # Publish test results
       - name: Publish test results
         script: |
           echo "Publishing test results..."
           # Test results are automatically published by Codemagic
 
-  # Workflow for App Store distribution
   ios-app-store:
     name: iOS App Store Release
     max_build_duration: 60
@@ -150,26 +135,22 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      # Pre-build setup
       - name: Setup environment
         script: |
           echo "Setting up build environment..."
           # Install SwiftLint
           brew install swiftlint
 
-      # Install dependencies
       - name: Install dependencies
         script: |
           echo "Installing CocoaPods dependencies..."
           pod install
 
-      # Run linting
       - name: Run SwiftLint
         script: |
           echo "Running SwiftLint..."
           swiftlint --strict
 
-      # Build the app for App Store
       - name: Build for App Store
         script: |
           echo "Building NextcloudTalk for App Store..."
@@ -181,7 +162,6 @@ workflows:
             -archivePath $CM_BUILD_DIR/NextcloudTalk.xcarchive \
             clean archive
 
-      # Export IPA
       - name: Export IPA
         script: |
           echo "Exporting IPA..."
@@ -196,7 +176,6 @@ workflows:
       - build/*.ipa
 
     publishing:
-      # Publish to App Store
       - name: Publish to App Store Connect
         script: |
           echo "Publishing to App Store Connect..."
@@ -207,7 +186,6 @@ workflows:
             --username $APP_STORE_USERNAME \
             --password $APP_STORE_PASSWORD
 
-  # Workflow for TestFlight distribution
   ios-testflight:
     name: iOS TestFlight Release
     max_build_duration: 60
@@ -224,26 +202,22 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      # Pre-build setup
       - name: Setup environment
         script: |
           echo "Setting up build environment..."
           # Install SwiftLint
           brew install swiftlint
 
-      # Install dependencies
       - name: Install dependencies
         script: |
           echo "Installing CocoaPods dependencies..."
           pod install
 
-      # Run linting
       - name: Run SwiftLint
         script: |
           echo "Running SwiftLint..."
           swiftlint --strict
 
-      # Build the app for TestFlight
       - name: Build for TestFlight
         script: |
           echo "Building NextcloudTalk for TestFlight..."
@@ -255,7 +229,6 @@ workflows:
             -archivePath $CM_BUILD_DIR/NextcloudTalk.xcarchive \
             clean archive
 
-      # Export IPA for TestFlight
       - name: Export IPA for TestFlight
         script: |
           echo "Exporting IPA for TestFlight..."
@@ -270,7 +243,6 @@ workflows:
       - build/*.ipa
 
     publishing:
-      # Publish to TestFlight
       - name: Publish to TestFlight
         script: |
           echo "Publishing to TestFlight..."
@@ -281,7 +253,6 @@ workflows:
             --username $APP_STORE_USERNAME \
             --password $APP_STORE_PASSWORD
 
-  # Workflow for pull request validation
   ios-pr-validation:
     name: iOS PR Validation
     max_build_duration: 45
@@ -293,26 +264,22 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
-      # Pre-build setup
       - name: Setup environment
         script: |
           echo "Setting up build environment..."
           # Install SwiftLint
           brew install swiftlint
 
-      # Install dependencies
       - name: Install dependencies
         script: |
           echo "Installing CocoaPods dependencies..."
           pod install
 
-      # Run linting
       - name: Run SwiftLint
         script: |
           echo "Running SwiftLint..."
           swiftlint --strict
 
-      # Build the app for testing
       - name: Build for testing
         script: |
           echo "Building NextcloudTalk for testing..."
@@ -323,7 +290,6 @@ workflows:
             -configuration Debug \
             -derivedDataPath build
 
-      # Run basic tests (without full server setup)
       - name: Run unit tests
         script: |
           echo "Running unit tests..."
@@ -340,7 +306,6 @@ workflows:
       - build/**/*.app
 
     publishing:
-      # Publish test results
       - name: Publish test results
         script: |
           echo "Publishing test results..."
