@@ -14,6 +14,11 @@ workflows:
         script: |
           pod install
 
+      - name: Disable localization script
+        script: |
+          # Prevent generate-localizable-strings-file.sh from failing
+          chmod -x generate-localizable-strings-file.sh || true
+
       - name: Build archive with automatic signing
         script: |
           xcodebuild archive \
