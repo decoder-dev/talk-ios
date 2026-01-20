@@ -57,24 +57,54 @@ workflows:
             -exportOptionsPlist exportOptions.plist \
             -exportPath $CM_BUILD_DIR/ipa || echo "IPA export failed, creating manually..."
 
-      - name: Remove code signature for sideloading
+      - name: Prepare app for sideloading
         script: |
-          echo "Preparing IPA for AltStore/Sideloadly sideloading"
+          echo "Preparing IPA for ESign/AltStore/Sideloadly"
           cd $CM_BUILD_DIR
 
           APP_PATH="app.xcarchive/Products/Applications/NextcloudTalk.app"
 
           if [ -d "$APP_PATH" ]; then
-            # Remove existing code signature so AltStore/Sideloadly can re-sign
-            echo "Removing embedded.mobileprovision and _CodeSignature"
+            echo "Step 1: Remove code signatures"
             rm -rf "$APP_PATH/embedded.mobileprovision"
             rm -rf "$APP_PATH/_CodeSignature"
-
-            # Remove code signature from all frameworks and plugins
             find "$APP_PATH" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
             find "$APP_PATH" -name "embedded.mobileprovision" -exec rm -f {} + 2>/dev/null || true
 
-            echo "Code signature removed successfully"
+            echo "Step 2: Remove problematic PlugIns (extensions)"
+            # Remove extensions that require special entitlements
+            rm -rf "$APP_PATH/PlugIns/NotificationServiceExtension.appex" 2>/dev/null || true
+            rm -rf "$APP_PATH/PlugIns/ShareExtension.appex" 2>/dev/null || true
+            rm -rf "$APP_PATH/PlugIns/BroadcastUploadExtension.appex" 2>/dev/null || true
+            rm -rf "$APP_PATH/PlugIns/TalkIntents.appex" 2>/dev/null || true
+
+            echo "Step 3: Simplify entitlements"
+            # Create minimal entitlements file
+            cat > "$APP_PATH/Entitlements.plist" << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>get-task-allow</key>
+  <true/>
+</dict>
+</plist>
+EOF
+
+            echo "Step 4: Remove Watch app if present"
+            rm -rf "$APP_PATH/Watch" 2>/dev/null || true
+
+            echo "Step 5: Clean frameworks"
+            if [ -d "$APP_PATH/Frameworks" ]; then
+              for framework in "$APP_PATH/Frameworks"/*.framework; do
+                if [ -d "$framework" ]; then
+                  rm -rf "$framework/_CodeSignature" 2>/dev/null || true
+                  rm -f "$framework/embedded.mobileprovision" 2>/dev/null || true
+                fi
+              done
+            fi
+
+            echo "✅ App cleaned and ready for sideloading"
           fi
 
       - name: Create unsigned IPA for sideloading
@@ -94,8 +124,27 @@ workflows:
             rm -rf Payload
 
             echo "✅ Unsigned IPA created: NextcloudTalk-unsigned.ipa"
-            echo "📱 Install using AltStore, Sideloadly, or SideStore"
-            echo "⚠️  This IPA needs to be re-signed with your Apple ID"
+            echo ""
+            echo "📱 HOW TO INSTALL:"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Option 1: ESign (No computer needed)"
+            echo "  1. Install ESign from https://esign-ios.app/"
+            echo "  2. Import your .p12 certificate and .mobileprovision"
+            echo "  3. Open NextcloudTalk-unsigned.ipa in ESign"
+            echo "  4. Select your certificate and tap Sign"
+            echo "  5. Install the signed app"
+            echo ""
+            echo "Option 2: AltStore/Sideloadly (Requires computer)"
+            echo "  1. Install AltStore or Sideloadly"
+            echo "  2. Connect iPhone to computer"
+            echo "  3. Load NextcloudTalk-unsigned.ipa"
+            echo "  4. Sign with your Apple ID"
+            echo ""
+            echo "⚠️  NOTES:"
+            echo "  - Extensions removed for compatibility"
+            echo "  - Free Apple ID: 7-day expiry, 3 app limit"
+            echo "  - Paid certificate: 1 year validity"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           else
             echo "IPA already exists from xcodebuild export"
           fi
