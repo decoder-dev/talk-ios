@@ -140,21 +140,21 @@ workflows:
             echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
             cat > "$APP_PATH/Entitlements.plist" <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>get-task-allow</key>
-  <true/>
-  <key>application-identifier</key>
-  <string>\$(AppIdentifierPrefix)com.decoder.Talk</string>
-  <key>keychain-access-groups</key>
-  <array>
-    <string>\$(AppIdentifierPrefix)com.decoder.Talk</string>
-  </array>
-</dict>
-</plist>
-EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>get-task-allow</key>
+            <true/>
+            <key>application-identifier</key>
+            <string>\$(AppIdentifierPrefix)com.decoder.Talk</string>
+            <key>keychain-access-groups</key>
+            <array>
+              <string>\$(AppIdentifierPrefix)com.decoder.Talk</string>
+            </array>
+          </dict>
+          </plist>
+          EOF
 
             echo "✓ Entitlements created"
 
