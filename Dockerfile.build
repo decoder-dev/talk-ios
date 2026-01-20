@@ -1,0 +1,21 @@
+# Dockerfile для сборки Nextcloud Talk IPA
+FROM macos-12-xcode:latest
+
+# Установка рабочей директории
+WORKDIR /app
+
+# Копирование файлов проекта
+COPY . .
+
+# Установка зависимостей
+RUN gem install cocoapods
+RUN brew install swiftlint
+
+# Установка CocoaPods зависимостей
+RUN pod install
+
+# Скрипт сборки IPA
+RUN chmod +x build-ipa.sh
+
+# Команда по умолчанию
+CMD ["./build-ipa.sh"]

@@ -1,0 +1,347 @@
+workflows:
+  # Workflow for building development version for testing on device
+  ios-development:
+    name: iOS Development Build
+    max_build_duration: 45
+    environment:
+      vars:
+        XCODE_WORKSPACE: "NextcloudTalk.xcworkspace"
+        XCODE_SCHEME: "NextcloudTalk"
+        BUNDLE_ID: "com.nextcloud.Talk"
+        DEVELOPMENT_TEAM: "YOUR_TEAM_ID"  # Replace with your Apple Developer Team ID
+      xcode: latest
+      cocoapods: default
+    scripts:
+      # Pre-build setup
+      - name: Setup environment
+        script: |
+          echo "Setting up development build environment..."
+          # Install SwiftLint
+          brew install swiftlint
+
+      # Install dependencies
+      - name: Install dependencies
+        script: |
+          echo "Installing CocoaPods dependencies..."
+          pod install
+
+      # Run linting (optional for development)
+      - name: Run SwiftLint
+        script: |
+          echo "Running SwiftLint..."
+          swiftlint --strict || echo "SwiftLint found issues, but continuing with build..."
+
+      # Build the app for development
+      - name: Build for Development
+        script: |
+          echo "Building NextcloudTalk for development..."
+          set -o pipefail && xcodebuild \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphoneos \
+            -configuration Debug \
+            -archivePath $CM_BUILD_DIR/NextcloudTalk_Development.xcarchive \
+            clean archive
+
+      # Export development IPA
+      - name: Export Development IPA
+        script: |
+          echo "Exporting development IPA..."
+          set -o pipefail && xcodebuild \
+            -exportArchive \
+            -archivePath $CM_BUILD_DIR/NextcloudTalk_Development.xcarchive \
+            -exportOptionsPlist exportOptionsDevelopment.plist \
+            -exportPath $CM_BUILD_DIR
+
+    artifacts:
+      - build/*.xcarchive
+      - build/*.ipa
+
+    publishing:
+      # Download link for the IPA
+      - name: Publish development IPA
+        script: |
+          echo "Development IPA ready for download: NextcloudTalk.ipa"
+
+  # Workflow for building and testing the iOS app
+  ios-workflow:
+    name: iOS Build and Test
+    max_build_duration: 60
+    environment:
+      vars:
+        XCODE_WORKSPACE: "NextcloudTalk.xcworkspace"
+        XCODE_SCHEME: "NextcloudTalk"
+        BUNDLE_ID: "com.nextcloud.Talk"
+        APP_STORE_APP_ID: 1296825574
+      xcode: latest
+      cocoapods: default
+    scripts:
+      # Pre-build setup
+      - name: Setup environment
+        script: |
+          echo "Setting up build environment..."
+          # Install SwiftLint
+          brew install swiftlint
+
+      # Install dependencies
+      - name: Install dependencies
+        script: |
+          echo "Installing CocoaPods dependencies..."
+          pod install
+
+      # Run linting
+      - name: Run SwiftLint
+        script: |
+          echo "Running SwiftLint..."
+          swiftlint --strict
+
+      # Build the app for testing
+      - name: Build for testing
+        script: |
+          echo "Building NextcloudTalk for testing..."
+          set -o pipefail && xcodebuild build-for-testing \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphoneos \
+            -configuration Debug \
+            -derivedDataPath build
+
+      # Run unit tests
+      - name: Run tests
+        script: |
+          echo "Running unit tests..."
+          set -o pipefail && xcodebuild test \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=iPhone 15,OS=17.0" \
+            -derivedDataPath build \
+            -enableCodeCoverage YES \
+            -resultBundlePath TestResults.xcresult
+
+    artifacts:
+      - build/**/*.xcarchive
+      - build/**/*.ipa
+      - build/**/*.app
+      - TestResults.xcresult
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
+
+    publishing:
+      # Publish test results
+      - name: Publish test results
+        script: |
+          echo "Publishing test results..."
+          # Test results are automatically published by Codemagic
+
+  # Workflow for App Store distribution
+  ios-app-store:
+    name: iOS App Store Release
+    max_build_duration: 60
+    environment:
+      vars:
+        XCODE_WORKSPACE: "NextcloudTalk.xcworkspace"
+        XCODE_SCHEME: "NextcloudTalk"
+        BUNDLE_ID: "com.nextcloud.Talk"
+        APP_STORE_APP_ID: 1296825574
+        # Certificate and provisioning profile variables should be set in Codemagic UI
+        CM_CERTIFICATE: $CM_CERTIFICATE
+        CM_CERTIFICATE_PASSWORD: $CM_CERTIFICATE_PASSWORD
+        CM_PROVISIONING_PROFILE: $CM_PROVISIONING_PROFILE
+      xcode: latest
+      cocoapods: default
+    scripts:
+      # Pre-build setup
+      - name: Setup environment
+        script: |
+          echo "Setting up build environment..."
+          # Install SwiftLint
+          brew install swiftlint
+
+      # Install dependencies
+      - name: Install dependencies
+        script: |
+          echo "Installing CocoaPods dependencies..."
+          pod install
+
+      # Run linting
+      - name: Run SwiftLint
+        script: |
+          echo "Running SwiftLint..."
+          swiftlint --strict
+
+      # Build the app for App Store
+      - name: Build for App Store
+        script: |
+          echo "Building NextcloudTalk for App Store..."
+          set -o pipefail && xcodebuild \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $CM_BUILD_DIR/NextcloudTalk.xcarchive \
+            clean archive
+
+      # Export IPA
+      - name: Export IPA
+        script: |
+          echo "Exporting IPA..."
+          set -o pipefail && xcodebuild \
+            -exportArchive \
+            -archivePath $CM_BUILD_DIR/NextcloudTalk.xcarchive \
+            -exportOptionsPlist exportOptions.plist \
+            -exportPath $CM_BUILD_DIR
+
+    artifacts:
+      - build/*.xcarchive
+      - build/*.ipa
+
+    publishing:
+      # Publish to App Store
+      - name: Publish to App Store Connect
+        script: |
+          echo "Publishing to App Store Connect..."
+          # Upload to App Store Connect
+          xcrun altool --upload-app \
+            --type ios \
+            --file $CM_BUILD_DIR/NextcloudTalk.ipa \
+            --username $APP_STORE_USERNAME \
+            --password $APP_STORE_PASSWORD
+
+  # Workflow for TestFlight distribution
+  ios-testflight:
+    name: iOS TestFlight Release
+    max_build_duration: 60
+    environment:
+      vars:
+        XCODE_WORKSPACE: "NextcloudTalk.xcworkspace"
+        XCODE_SCHEME: "NextcloudTalk"
+        BUNDLE_ID: "com.nextcloud.Talk"
+        APP_STORE_APP_ID: 1296825574
+        # Certificate and provisioning profile variables should be set in Codemagic UI
+        CM_CERTIFICATE: $CM_CERTIFICATE
+        CM_CERTIFICATE_PASSWORD: $CM_CERTIFICATE_PASSWORD
+        CM_PROVISIONING_PROFILE: $CM_PROVISIONING_PROFILE
+      xcode: latest
+      cocoapods: default
+    scripts:
+      # Pre-build setup
+      - name: Setup environment
+        script: |
+          echo "Setting up build environment..."
+          # Install SwiftLint
+          brew install swiftlint
+
+      # Install dependencies
+      - name: Install dependencies
+        script: |
+          echo "Installing CocoaPods dependencies..."
+          pod install
+
+      # Run linting
+      - name: Run SwiftLint
+        script: |
+          echo "Running SwiftLint..."
+          swiftlint --strict
+
+      # Build the app for TestFlight
+      - name: Build for TestFlight
+        script: |
+          echo "Building NextcloudTalk for TestFlight..."
+          set -o pipefail && xcodebuild \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphoneos \
+            -configuration Release \
+            -archivePath $CM_BUILD_DIR/NextcloudTalk.xcarchive \
+            clean archive
+
+      # Export IPA for TestFlight
+      - name: Export IPA for TestFlight
+        script: |
+          echo "Exporting IPA for TestFlight..."
+          set -o pipefail && xcodebuild \
+            -exportArchive \
+            -archivePath $CM_BUILD_DIR/NextcloudTalk.xcarchive \
+            -exportOptionsPlist exportOptionsTestFlight.plist \
+            -exportPath $CM_BUILD_DIR
+
+    artifacts:
+      - build/*.xcarchive
+      - build/*.ipa
+
+    publishing:
+      # Publish to TestFlight
+      - name: Publish to TestFlight
+        script: |
+          echo "Publishing to TestFlight..."
+          # Upload to TestFlight
+          xcrun altool --upload-app \
+            --type ios \
+            --file $CM_BUILD_DIR/NextcloudTalk.ipa \
+            --username $APP_STORE_USERNAME \
+            --password $APP_STORE_PASSWORD
+
+  # Workflow for pull request validation
+  ios-pr-validation:
+    name: iOS PR Validation
+    max_build_duration: 45
+    environment:
+      vars:
+        XCODE_WORKSPACE: "NextcloudTalk.xcworkspace"
+        XCODE_SCHEME: "NextcloudTalk"
+        BUNDLE_ID: "com.nextcloud.Talk"
+      xcode: latest
+      cocoapods: default
+    scripts:
+      # Pre-build setup
+      - name: Setup environment
+        script: |
+          echo "Setting up build environment..."
+          # Install SwiftLint
+          brew install swiftlint
+
+      # Install dependencies
+      - name: Install dependencies
+        script: |
+          echo "Installing CocoaPods dependencies..."
+          pod install
+
+      # Run linting
+      - name: Run SwiftLint
+        script: |
+          echo "Running SwiftLint..."
+          swiftlint --strict
+
+      # Build the app for testing
+      - name: Build for testing
+        script: |
+          echo "Building NextcloudTalk for testing..."
+          set -o pipefail && xcodebuild build \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            -derivedDataPath build
+
+      # Run basic tests (without full server setup)
+      - name: Run unit tests
+        script: |
+          echo "Running unit tests..."
+          set -o pipefail && xcodebuild test \
+            -workspace "$XCODE_WORKSPACE" \
+            -scheme "$XCODE_SCHEME" \
+            -sdk iphonesimulator \
+            -destination "platform=iOS Simulator,name=iPhone 15,OS=17.0" \
+            -derivedDataPath build \
+            -only-testing:NextcloudTalkTests/Unit \
+            -enableCodeCoverage YES
+
+    artifacts:
+      - build/**/*.app
+
+    publishing:
+      # Publish test results
+      - name: Publish test results
+        script: |
+          echo "Publishing test results..."
+          # Test results are automatically published by Codemagic
