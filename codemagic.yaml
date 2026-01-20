@@ -52,8 +52,7 @@ workflows:
       - build/*.ipa
 
     publishing:
-      - name: Publish development IPA
-        script: |
+      - script: |
           echo "Development IPA ready for download: NextcloudTalk.ipa"
 
   ios-workflow:
@@ -114,8 +113,7 @@ workflows:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
 
     publishing:
-      - name: Publish test results
-        script: |
+      - script: |
           echo "Publishing test results..."
           # Test results are automatically published by Codemagic
 
@@ -176,8 +174,7 @@ workflows:
       - build/*.ipa
 
     publishing:
-      - name: Publish to App Store Connect
-        script: |
+      - script: |
           echo "Publishing to App Store Connect..."
           # Upload to App Store Connect
           xcrun altool --upload-app \
@@ -243,8 +240,7 @@ workflows:
       - build/*.ipa
 
     publishing:
-      - name: Publish to TestFlight
-        script: |
+      - script: |
           echo "Publishing to TestFlight..."
           # Upload to TestFlight
           xcrun altool --upload-app \
@@ -306,7 +302,6 @@ workflows:
       - build/**/*.app
 
     publishing:
-      - name: Publish test results
-        script: |
+      - script: |
           echo "Publishing test results..."
           # Test results are automatically published by Codemagic
