@@ -52,8 +52,8 @@ workflows:
       - build/*.ipa
 
     publishing:
-      - script: |
-          echo "Development IPA ready for download: NextcloudTalk.ipa"
+      script: |
+        echo "Development IPA ready for download: NextcloudTalk.ipa"
 
   ios-workflow:
     name: iOS Build and Test
@@ -113,9 +113,9 @@ workflows:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Logs/Test/*.xcresult
 
     publishing:
-      - script: |
-          echo "Publishing test results..."
-          # Test results are automatically published by Codemagic
+      script: |
+        echo "Publishing test results..."
+        # Test results are automatically published by Codemagic
 
   ios-app-store:
     name: iOS App Store Release
@@ -302,6 +302,6 @@ workflows:
       - build/**/*.app
 
     publishing:
-      - script: |
-          echo "Publishing test results..."
-          # Test results are automatically published by Codemagic
+      script: |
+        echo "Publishing test results..."
+        # Test results are automatically published by Codemagic
