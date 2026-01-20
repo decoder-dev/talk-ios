@@ -145,13 +145,15 @@ workflows:
           <plist version="1.0">
           <dict>
             <key>get-task-allow</key>
-            <true/>
+            <false/>
             <key>application-identifier</key>
             <string>\$(AppIdentifierPrefix)com.decoder.Talk</string>
             <key>keychain-access-groups</key>
             <array>
               <string>\$(AppIdentifierPrefix)com.decoder.Talk</string>
             </array>
+            <key>com.apple.developer.usernotifications.communication</key>
+            <true/>
           </dict>
           </plist>
           EOF
