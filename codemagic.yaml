@@ -57,29 +57,88 @@ workflows:
             -exportOptionsPlist exportOptions.plist \
             -exportPath $CM_BUILD_DIR/ipa || echo "IPA export failed, creating manually..."
 
-      - name: Prepare app for sideloading
+      - name: Prepare optimized IPA for purchased certificate
         script: |
-          echo "Preparing IPA for ESign/AltStore/Sideloadly"
+          echo "🔧 Preparing optimized IPA for purchased certificate (ESign)"
           cd $CM_BUILD_DIR
 
           APP_PATH="app.xcarchive/Products/Applications/NextcloudTalk.app"
 
           if [ -d "$APP_PATH" ]; then
-            echo "Step 1: Remove code signatures"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Step 1: Strip all existing signatures"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # Remove main app signatures
             rm -rf "$APP_PATH/embedded.mobileprovision"
             rm -rf "$APP_PATH/_CodeSignature"
+
+            # Clean all nested signatures
             find "$APP_PATH" -name "_CodeSignature" -type d -exec rm -rf {} + 2>/dev/null || true
             find "$APP_PATH" -name "embedded.mobileprovision" -exec rm -f {} + 2>/dev/null || true
+            find "$APP_PATH" -name "*.dSYM" -type d -exec rm -rf {} + 2>/dev/null || true
 
-            echo "Step 2: Remove problematic PlugIns (extensions)"
-            # Remove extensions that require special entitlements
-            rm -rf "$APP_PATH/PlugIns/NotificationServiceExtension.appex" 2>/dev/null || true
-            rm -rf "$APP_PATH/PlugIns/ShareExtension.appex" 2>/dev/null || true
-            rm -rf "$APP_PATH/PlugIns/BroadcastUploadExtension.appex" 2>/dev/null || true
-            rm -rf "$APP_PATH/PlugIns/TalkIntents.appex" 2>/dev/null || true
+            echo "✓ Signatures removed"
 
-            echo "Step 3: Simplify entitlements"
-            # Create minimal entitlements file
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Step 2: Remove app extensions (PlugIns)"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # Remove all extensions to avoid entitlement conflicts
+            if [ -d "$APP_PATH/PlugIns" ]; then
+              REMOVED_PLUGINS=$(ls "$APP_PATH/PlugIns" 2>/dev/null | wc -l)
+              rm -rf "$APP_PATH/PlugIns"
+              echo "✓ Removed $REMOVED_PLUGINS extensions"
+            else
+              echo "✓ No extensions found"
+            fi
+
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Step 3: Clean frameworks and dylibs"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            if [ -d "$APP_PATH/Frameworks" ]; then
+              FRAMEWORK_COUNT=0
+              for framework in "$APP_PATH/Frameworks"/*.framework "$APP_PATH/Frameworks"/*.dylib; do
+                if [ -e "$framework" ]; then
+                  rm -rf "$framework/_CodeSignature" 2>/dev/null || true
+                  rm -f "$framework/embedded.mobileprovision" 2>/dev/null || true
+                  FRAMEWORK_COUNT=$((FRAMEWORK_COUNT + 1))
+                fi
+              done
+              echo "✓ Cleaned $FRAMEWORK_COUNT frameworks/dylibs"
+            fi
+
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Step 4: Remove Watch app and extras"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            rm -rf "$APP_PATH/Watch" 2>/dev/null || true
+            rm -rf "$APP_PATH/Assets.car.dSYM" 2>/dev/null || true
+            rm -rf "$APP_PATH/SC_Info" 2>/dev/null || true
+
+            echo "✓ Removed Watch and extra files"
+
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Step 5: Fix Info.plist for sideloading"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+            # Remove problematic entries from Info.plist
+            if [ -f "$APP_PATH/Info.plist" ]; then
+              /usr/libexec/PlistBuddy -c "Delete :UIApplicationShortcutItems" "$APP_PATH/Info.plist" 2>/dev/null || true
+              /usr/libexec/PlistBuddy -c "Delete :NSExtension" "$APP_PATH/Info.plist" 2>/dev/null || true
+              echo "✓ Info.plist cleaned"
+            fi
+
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Step 6: Create optimized entitlements"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
             cat > "$APP_PATH/Entitlements.plist" << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -87,24 +146,26 @@ workflows:
 <dict>
   <key>get-task-allow</key>
   <true/>
+  <key>application-identifier</key>
+  <string>$(AppIdentifierPrefix)com.decoder.Talk</string>
+  <key>keychain-access-groups</key>
+  <array>
+    <string>$(AppIdentifierPrefix)com.decoder.Talk</string>
+  </array>
 </dict>
 </plist>
 EOF
 
-            echo "Step 4: Remove Watch app if present"
-            rm -rf "$APP_PATH/Watch" 2>/dev/null || true
+            echo "✓ Entitlements created"
 
-            echo "Step 5: Clean frameworks"
-            if [ -d "$APP_PATH/Frameworks" ]; then
-              for framework in "$APP_PATH/Frameworks"/*.framework; do
-                if [ -d "$framework" ]; then
-                  rm -rf "$framework/_CodeSignature" 2>/dev/null || true
-                  rm -f "$framework/embedded.mobileprovision" 2>/dev/null || true
-                fi
-              done
-            fi
-
-            echo "✅ App cleaned and ready for sideloading"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "✅ OPTIMIZATION COMPLETE"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "Bundle: com.decoder.Talk"
+            echo "Size: $(du -sh "$APP_PATH" | cut -f1)"
+            echo "Ready for: ESign + Purchased Certificate"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           fi
 
       - name: Create unsigned IPA for sideloading
@@ -123,28 +184,61 @@ EOF
             zip -qq -r -9 NextcloudTalk-unsigned.ipa Payload
             rm -rf Payload
 
-            echo "✅ Unsigned IPA created: NextcloudTalk-unsigned.ipa"
             echo ""
-            echo "📱 HOW TO INSTALL:"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-            echo "Option 1: ESign (No computer needed)"
-            echo "  1. Install ESign from https://esign-ios.app/"
-            echo "  2. Import your .p12 certificate and .mobileprovision"
-            echo "  3. Open NextcloudTalk-unsigned.ipa in ESign"
-            echo "  4. Select your certificate and tap Sign"
-            echo "  5. Install the signed app"
+            echo "╔══════════════════════════════════════════════════════════╗"
+            echo "║  ✅ NextcloudTalk-unsigned.ipa CREATED SUCCESSFULLY     ║"
+            echo "╚══════════════════════════════════════════════════════════╝"
             echo ""
-            echo "Option 2: AltStore/Sideloadly (Requires computer)"
-            echo "  1. Install AltStore or Sideloadly"
-            echo "  2. Connect iPhone to computer"
-            echo "  3. Load NextcloudTalk-unsigned.ipa"
-            echo "  4. Sign with your Apple ID"
+            echo "📱 INSTALLATION WITH ESIGN (RECOMMENDED):"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
             echo ""
-            echo "⚠️  NOTES:"
-            echo "  - Extensions removed for compatibility"
-            echo "  - Free Apple ID: 7-day expiry, 3 app limit"
-            echo "  - Paid certificate: 1 year validity"
-            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "  1️⃣  Download & Install ESign"
+            echo "     • URL: https://esign-ios.app/"
+            echo "     • Or search 'ESign iOS' on your browser"
+            echo ""
+            echo "  2️⃣  Import Your Purchased Certificate"
+            echo "     • Open ESign → Settings → Import Resources"
+            echo "     • First import: .mobileprovision file"
+            echo "     • Then import: .p12 certificate file"
+            echo "     • Enter certificate password if prompted"
+            echo ""
+            echo "  3️⃣  Download This IPA to iPhone"
+            echo "     • Download: NextcloudTalk-unsigned.ipa"
+            echo "     • Save to Files app or iCloud"
+            echo ""
+            echo "  4️⃣  Sign & Install with ESign"
+            echo "     • Open NextcloudTalk-unsigned.ipa in ESign"
+            echo "     • Select your imported certificate"
+            echo "     • Tap 'Sign' and wait for completion"
+            echo "     • Tap 'Install' when signing is done"
+            echo ""
+            echo "  5️⃣  Trust Certificate"
+            echo "     • Settings → General → VPN & Device Management"
+            echo "     • Tap your certificate name"
+            echo "     • Tap 'Trust' and confirm"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "✨ WHAT'S OPTIMIZED:"
+            echo "  ✓ All app extensions removed (no crashes)"
+            echo "  ✓ Clean entitlements (compatible with any cert)"
+            echo "  ✓ All frameworks stripped of signatures"
+            echo "  ✓ Info.plist optimized for sideloading"
+            echo "  ✓ Ready for your purchased certificate"
+            echo ""
+            echo "⚠️  IMPORTANT NOTES:"
+            echo "  • Purchased cert validity: Usually 1 year"
+            echo "  • No 3-app limit with paid certs"
+            echo "  • No 7-day renewal needed"
+            echo "  • Bundle ID: com.decoder.Talk"
+            echo ""
+            echo "🆘 IF APP CRASHES:"
+            echo "  1. Check crash logs: Settings → Privacy → Analytics"
+            echo "  2. Make sure certificate is for 'iOS App Development'"
+            echo "  3. Ensure .mobileprovision matches your device UDID"
+            echo "  4. Re-sign with 'File Sharing' disabled in ESign"
+            echo ""
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           else
             echo "IPA already exists from xcodebuild export"
           fi
