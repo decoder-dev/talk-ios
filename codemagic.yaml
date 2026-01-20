@@ -174,14 +174,14 @@ workflows:
       - build/*.ipa
 
     publishing:
-      - script: |
-          echo "Publishing to App Store Connect..."
-          # Upload to App Store Connect
-          xcrun altool --upload-app \
-            --type ios \
-            --file $CM_BUILD_DIR/NextcloudTalk.ipa \
-            --username $APP_STORE_USERNAME \
-            --password $APP_STORE_PASSWORD
+      script: |
+        echo "Publishing to App Store Connect..."
+        # Upload to App Store Connect
+        xcrun altool --upload-app \
+          --type ios \
+          --file $CM_BUILD_DIR/NextcloudTalk.ipa \
+          --username $APP_STORE_USERNAME \
+          --password $APP_STORE_PASSWORD
 
   ios-testflight:
     name: iOS TestFlight Release
@@ -240,14 +240,14 @@ workflows:
       - build/*.ipa
 
     publishing:
-      - script: |
-          echo "Publishing to TestFlight..."
-          # Upload to TestFlight
-          xcrun altool --upload-app \
-            --type ios \
-            --file $CM_BUILD_DIR/NextcloudTalk.ipa \
-            --username $APP_STORE_USERNAME \
-            --password $APP_STORE_PASSWORD
+      script: |
+        echo "Publishing to TestFlight..."
+        # Upload to TestFlight
+        xcrun altool --upload-app \
+          --type ios \
+          --file $CM_BUILD_DIR/NextcloudTalk.ipa \
+          --username $APP_STORE_USERNAME \
+          --password $APP_STORE_PASSWORD
 
   ios-pr-validation:
     name: iOS PR Validation
