@@ -55,8 +55,23 @@ workflows:
           xcodebuild -exportArchive \
             -archivePath $CM_BUILD_DIR/app.xcarchive \
             -exportOptionsPlist exportOptions.plist \
-            -exportPath $CM_BUILD_DIR/ipa || echo "IPA export failed, archive available"
+            -exportPath $CM_BUILD_DIR/ipa || echo "IPA export failed, creating manually..."
+
+      - name: Create IPA manually from xcarchive
+        script: |
+          if [ ! -f $CM_BUILD_DIR/ipa/*.ipa ]; then
+            echo "Creating IPA manually from .app bundle"
+            cd $CM_BUILD_DIR
+            mkdir -p Payload
+            cp -r app.xcarchive/Products/Applications/*.app Payload/
+            zip -qq -r -9 NextcloudTalk.ipa Payload
+            rm -rf Payload
+            echo "Manual IPA created: NextcloudTalk.ipa"
+          else
+            echo "IPA already exists from xcodebuild export"
+          fi
 
     artifacts:
       - $CM_BUILD_DIR/app.xcarchive
       - $CM_BUILD_DIR/ipa/*.ipa
+      - $CM_BUILD_DIR/*.ipa
